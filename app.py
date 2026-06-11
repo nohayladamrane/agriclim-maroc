@@ -15,6 +15,7 @@ import time
 
 st.set_page_config(page_title="AgriClim Maroc", page_icon="🌾", layout="wide", initial_sidebar_state="expanded")
 
+
 # ═══════════════════════════════════════════════
 #  CHARGEMENT DU MODÈLE XGBOOST
 # ═══════════════════════════════════════════════
@@ -33,7 +34,9 @@ def load_xgb_model():
         st.warning(f"Impossible de charger le modèle XGBoost: {str(e)}")
         return None, False
 
+
 xgb_model, model_loaded = load_xgb_model()
+
 
 # ═══════════════════════════════════════════════
 #  DÉFINITION DES FEATURES POUR LE MODÈLE
@@ -66,7 +69,9 @@ def get_feature_names():
         'Crop_Type_FR_Légumineuses', 'Crop_Type_FR_Olive'
     ]
 
+
 feature_names = get_feature_names()
+
 
 # ═══════════════════════════════════════════════
 #  FONCTION DE PRÉDICTION XGBOOST
@@ -82,7 +87,7 @@ def predict_with_xgboost(precip, temp, humid, solar, culture, sol, irrigation, e
         coef_irr = 1.18 if irrigation == "Oui" else 1.0
         coef_eng = {"Aucun": 0.72, "Faible": 0.88, "Moyen": 1.0, "Élevé": 1.14, "Intensif": 1.22}
         coef_cult = 1.0
-        
+
         # Coefficient culture approximatif
         culture_map = {
             "Blé tendre": 0.85, "Orge": 0.78, "Maïs": 1.1, "Tomate": 1.3,
@@ -90,26 +95,26 @@ def predict_with_xgboost(precip, temp, humid, solar, culture, sol, irrigation, e
         }
         if culture in culture_map:
             coef_cult = culture_map[culture]
-            
+
         pred = base * coef_sol[sol] * coef_irr * coef_cult * coef_eng[engrais]
         return max(700, min(6500, pred))
-    
+
     # Si le modèle est chargé, préparer les features
     try:
         # Créer un dictionnaire avec toutes les features (valeurs par défaut)
         features_dict = {col: 0 for col in feature_names}
-        
+
         # Remplir les valeurs disponibles
         features_dict['Year'] = year
         features_dict['Precip_Total_mm'] = precip
         features_dict['Temp_Mean_C'] = temp
         features_dict['Humidity_Pct'] = humid
         features_dict['Solar_Radiation'] = solar
-        
+
         # Mapping culture vers Product_X
         product_mapping = {
             "Blé tendre": "Product_Maïs",
-            "Orge": "Product_Orge", 
+            "Orge": "Product_Orge",
             "Maïs": "Product_Maïs",
             "Tomate": "Product_Tomates  fraiches",
             "Olivier": "Product_Olives",
@@ -117,38 +122,38 @@ def predict_with_xgboost(precip, temp, humid, solar, culture, sol, irrigation, e
             "Pomme de terre": "Product_Pommes de terre",
             "Dattier": "Product_Dattes"
         }
-        
+
         if culture in product_mapping:
             features_dict[product_mapping[culture]] = 1
-        
+
         # Mapping type de sol vers Crop_Type
-        sol_to_crop = {"Argileux": "Crop_Type_Cereal", "Sableux": "Crop_Type_Legume", 
+        sol_to_crop = {"Argileux": "Crop_Type_Cereal", "Sableux": "Crop_Type_Legume",
                        "Limoneux": "Crop_Type_Fruit", "Calcaire": "Crop_Type_Olive"}
         if sol in sol_to_crop:
             features_dict[sol_to_crop[sol]] = 1
-        
+
         # Créer DataFrame
         input_df = pd.DataFrame([features_dict])
-        
+
         # Prédiction
         pred_class = xgb_model.predict(input_df)[0]
         pred_proba = xgb_model.predict_proba(input_df)[0]
-        
+
         # Conversion classe vers rendement estimé (classes: 0=faible, 1=moyen, 2=élevé)
         class_to_yield = {0: 1200, 1: 2500, 2: 4000}
         base_yield = class_to_yield.get(pred_class, 2000)
-        
+
         # Ajustement avec probabilités
         pred = base_yield * (1 + (pred_proba[pred_class] - 0.33) * 0.5)
-        
+
         # Application des coefficients supplémentaires
         coef_sol = {"Limoneux": 1.0, "Argileux": 0.92, "Sableux": 0.85, "Calcaire": 0.90, "Mixte": 0.96}
         coef_irr = 1.18 if irrigation == "Oui" else 1.0
         coef_eng = {"Aucun": 0.72, "Faible": 0.88, "Moyen": 1.0, "Élevé": 1.14, "Intensif": 1.22}
-        
+
         pred = pred * coef_sol[sol] * coef_irr * coef_eng[engrais]
         return max(700, min(6500, pred))
-        
+
     except Exception as e:
         # Fallback en cas d'erreur
         base = 1850 + (precip * 5.1) - (temp * 68) + (humid * 12) + (solar * 42)
@@ -158,6 +163,7 @@ def predict_with_xgboost(precip, temp, humid, solar, culture, sol, irrigation, e
         coef_cult = 1.0
         pred = base * coef_sol[sol] * coef_irr * coef_cult * coef_eng[engrais]
         return max(700, min(6500, pred))
+
 
 # ═══════════════════════════════════════════════
 #  TRADUCTIONS (FR / AR)
@@ -293,15 +299,18 @@ TRANSLATIONS = {
     }
 }
 
+
 def T(key):
     lang = st.session_state.get("lang", "fr")
     return TRANSLATIONS.get(lang, TRANSLATIONS["fr"]).get(key, key)
+
 
 # ═══════════════════════════════════════════════
 #  USER DATABASE (JSON-based)
 # ═══════════════════════════════════════════════
 USERS_FILE = "agriclim_users.json"
 HISTORY_FILE = "agriclim_history.json"
+
 
 def load_users():
     if os.path.exists(USERS_FILE):
@@ -328,12 +337,15 @@ def load_users():
     save_users(default)
     return default
 
+
 def save_users(users):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
+
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
+
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -341,9 +353,11 @@ def load_history():
             return json.load(f)
     return {}
 
+
 def save_history(history):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
+
 
 # ═══════════════════════════════════════════════
 #  CSS GLOBAL
@@ -513,6 +527,7 @@ hr {{ border-color: #e0e8e0 !important; margin: 16px 0 !important; }}
 [data-testid="stSidebar"] .stSlider label {{ color: white !important; font-weight: 500 !important; }}
 </style>""", unsafe_allow_html=True)
 
+
 # ═══════════════════════════════════════════════
 #  SESSION STATE INIT
 # ═══════════════════════════════════════════════
@@ -533,6 +548,7 @@ if st.session_state.pred_history is None:
 
 lang = st.session_state.lang
 apply_css(lang)
+
 
 # ═══════════════════════════════════════════════
 #  FONCTIONS DE CHARGEMENT DES DONNÉES
@@ -556,6 +572,7 @@ def load_data():
                 except:
                     continue
     return generate_demo_data()
+
 
 def standardize_columns(df):
     col_mapping = {
@@ -591,6 +608,7 @@ def standardize_columns(df):
         df['Solar_Rad'] = 18
     return df
 
+
 def generate_demo_data():
     np.random.seed(42)
     years = list(range(1990, 2025))
@@ -624,6 +642,7 @@ def generate_demo_data():
                 })
     return pd.DataFrame(rows)
 
+
 df = load_data()
 
 # ═══════════════════════════════════════════════
@@ -642,19 +661,27 @@ REGION_COORDS = {
 }
 
 DEMO_WEATHER = {
-    "Béni Mellal-Khénifra": {"temp": 36, "humidity": 35, "precip": 5, "wind": 14, "icon": "☀️", "description": "Très chaud et sec"},
-    "Fès-Meknès": {"temp": 34, "humidity": 38, "precip": 8, "wind": 12, "icon": "☀️", "description": "Chaud et ensoleillé"},
+    "Béni Mellal-Khénifra": {"temp": 36, "humidity": 35, "precip": 5, "wind": 14, "icon": "☀️",
+                             "description": "Très chaud et sec"},
+    "Fès-Meknès": {"temp": 34, "humidity": 38, "precip": 8, "wind": 12, "icon": "☀️",
+                   "description": "Chaud et ensoleillé"},
     "Souss-Massa": {"temp": 32, "humidity": 45, "precip": 3, "wind": 16, "icon": "☀️", "description": "Ensoleillé"},
     "Marrakech-Safi": {"temp": 38, "humidity": 30, "precip": 2, "wind": 15, "icon": "☀️", "description": "Très chaud"},
-    "Rabat-Salé-Kénitra": {"temp": 28, "humidity": 55, "precip": 10, "wind": 18, "icon": "⛅", "description": "Douceur côtière"},
+    "Rabat-Salé-Kénitra": {"temp": 28, "humidity": 55, "precip": 10, "wind": 18, "icon": "⛅",
+                           "description": "Douceur côtière"},
     "Oriental": {"temp": 35, "humidity": 32, "precip": 6, "wind": 17, "icon": "☀️", "description": "Chaud et sec"},
-    "Tanger-Tétouan-Al Hoceïma": {"temp": 26, "humidity": 60, "precip": 12, "wind": 20, "icon": "⛅", "description": "Méditerranéen doux"},
-    "Casablanca-Settat": {"temp": 27, "humidity": 58, "precip": 8, "wind": 19, "icon": "⛅", "description": "Côtier agréable"},
-    "Drâa-Tafilalet": {"temp": 40, "humidity": 25, "precip": 1, "wind": 13, "icon": "☀️", "description": "Désertique très chaud"},
+    "Tanger-Tétouan-Al Hoceïma": {"temp": 26, "humidity": 60, "precip": 12, "wind": 20, "icon": "⛅",
+                                  "description": "Méditerranéen doux"},
+    "Casablanca-Settat": {"temp": 27, "humidity": 58, "precip": 8, "wind": 19, "icon": "⛅",
+                          "description": "Côtier agréable"},
+    "Drâa-Tafilalet": {"temp": 40, "humidity": 25, "precip": 1, "wind": 13, "icon": "☀️",
+                       "description": "Désertique très chaud"},
 }
+
 
 def get_weather_demo(region_name):
     return DEMO_WEATHER.get(region_name, DEMO_WEATHER["Béni Mellal-Khénifra"])
+
 
 # ═══════════════════════════════════════════════
 #  LANDING PAGE
@@ -784,13 +811,17 @@ with st.sidebar:
     if new_lang != st.session_state.lang:
         st.session_state.lang = new_lang
         st.rerun()
-    
+
     # Affichage du statut du modèle
     if model_loaded:
-        st.markdown(f"<div style='background:#2d5a3a; border-radius:8px; padding:6px 10px; margin-bottom:10px; text-align:center;'><span style='color:#6ab04c;'>✅ {T('model_status')}</span></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='background:#2d5a3a; border-radius:8px; padding:6px 10px; margin-bottom:10px; text-align:center;'><span style='color:#6ab04c;'>✅ {T('model_status')}</span></div>",
+            unsafe_allow_html=True)
     else:
-        st.markdown(f"<div style='background:#8b4513; border-radius:8px; padding:6px 10px; margin-bottom:10px; text-align:center;'><span style='color:#ffcc00;'>⚠️ {T('model_not_loaded')}</span></div>", unsafe_allow_html=True)
-    
+        st.markdown(
+            f"<div style='background:#8b4513; border-radius:8px; padding:6px 10px; margin-bottom:10px; text-align:center;'><span style='color:#ffcc00;'>⚠️ {T('model_not_loaded')}</span></div>",
+            unsafe_allow_html=True)
+
     st.markdown("<hr>", unsafe_allow_html=True)
     for label, ico in NAV_ITEMS:
         if st.button(f"{ico} {label}", key=f"nav_{label.replace(' ', '_')}", use_container_width=True):
@@ -819,6 +850,7 @@ page = st.session_state.page
 df_f = df[df["Year"].between(years_range[0], years_range[1])].copy()
 COLORS = ["#1a472a", "#2d5a3a", "#6ab04c", "#d4a056", "#1565c0", "#8e44ad", "#c0392b", "#16a085"]
 
+
 def apply_theme(fig, height=300, title=None):
     fig.update_layout(
         plot_bgcolor="#ffffff",
@@ -833,6 +865,7 @@ def apply_theme(fig, height=300, title=None):
     if title:
         fig.update_layout(title=dict(text=title, font=dict(size=14, color="#1a472a"), x=0))
     return fig
+
 
 ALL_CROPS = sorted(df["Product"].unique().tolist())
 REGIONS_LIST = sorted(df["Region"].unique().tolist())
@@ -1014,7 +1047,8 @@ elif page == T("nav_rend"):
             c2.metric("🌧️ Pluie", f"{df_reg['Precip_Total_mm'].mean():.0f} mm")
             c3.metric("🌡️ Température", f"{df_reg['Temp_Mean_C'].mean():.1f} °C")
 
-            top_crops_reg = df_reg.groupby("Product")["Value_Mean"].mean().sort_values(ascending=True).tail(10).reset_index()
+            top_crops_reg = df_reg.groupby("Product")["Value_Mean"].mean().sort_values(ascending=True).tail(
+                10).reset_index()
             fig = px.bar(top_crops_reg, x="Value_Mean", y="Product", orientation="h",
                          title=f"🏆 Top cultures - {reg_sel}", color="Value_Mean",
                          color_continuous_scale=["#b7dfbf", "#1a472a"])
@@ -1168,7 +1202,7 @@ elif page == T("nav_pred"):
     if st.button("🔮 Calculer mon rendement estimé", use_container_width=True):
         # Utiliser le modèle XGBoost
         pred = predict_with_xgboost(precip, temp, humid, solar, culture_pred, sol, irrigation, engrais)
-        
+
         if pred >= 3800:
             niveau, emoji, color = "Excellent 🏆", "🏆", "#16a34a"
         elif pred >= 2800:
@@ -1202,7 +1236,7 @@ elif page == T("nav_pred"):
             "🌱 Engrais": {"Aucun": 10, "Faible": 25, "Moyen": 45, "Élevé": 65, "Intensif": 80}.get(engrais, 40),
             "🪨 Type de sol": {"Limoneux": 50, "Argileux": 35, "Sableux": 20, "Calcaire": 30, "Mixte": 40}.get(sol, 30)
         }
-        
+
         fig_f = go.Figure()
         fig_f.add_trace(go.Bar(
             x=list(contributions.values()), y=list(contributions.keys()), orientation='h',
@@ -1257,13 +1291,16 @@ elif page == T("nav_conseils"):
                                            ("👨‍🌾", "Conseil agricole", "Consultez un technicien")]
     }
     for ico, titre, texte in conseils_data[situation]:
-        st.markdown(f"""<div class='conseil-card'><div style='font-weight:600;'>{ico} {titre}</div><div>{texte}</div></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class='conseil-card'><div style='font-weight:600;'>{ico} {titre}</div><div>{texte}</div></div>""",
+            unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 #  PAGE ASSISTANT IA
 # ══════════════════════════════════════════════════════════
 elif page == T("nav_chat"):
     st.markdown("<div class='page-title'>💬 Assistant Agricole</div>", unsafe_allow_html=True)
+
 
     def get_response(q):
         q_lower = q.lower()
@@ -1279,6 +1316,7 @@ elif page == T("nav_chat"):
             return "Fertilisation équilibrée NPK selon culture. Analyse de sol recommandée pour un apport personnalisé."
         else:
             return "Posez une question sur: blé, orge, tomate, irrigation, engrais, ou conseils agricoles."
+
 
     for msg in st.session_state.chat_history:
         if msg["role"] == "user":
